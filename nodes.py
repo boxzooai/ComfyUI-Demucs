@@ -13,23 +13,28 @@ class Demucs_VocalSeparator:
 
     def __init__(self):
         self.model = None
+        self.current_model_name = None
 
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
                 "sample_audio": ("AUDIO",),
-                "model_name": (["htdemucs", "htdemucs_ft"], {"default": "htdemucs"})
+                "model_name": (["htdemucs", "htdemucs_ft", "htdemucs_6s", "hdemucs_mmi", "mdx", "mdx_extra", "mdx_q", "mdx_extra_q"], {"default": "htdemucs"})
             }
         }
 
     RETURN_TYPES = (
-        "AUDIO",  # vocal_audio
-        "AUDIO"  # instrumental_audio
+        "AUDIO",  # drums_audio
+        "AUDIO",  # bass_audio
+        "AUDIO",  # other_audio
+        "AUDIO"   # vocal_audio
     )
     RETURN_NAMES = (
-        "vocal_audio",
-        "instrumental_audio"
+        "vocals",
+        "other",
+        "drums",
+        "bass"
     )
 
     FUNCTION = "separate"
@@ -38,7 +43,9 @@ class Demucs_VocalSeparator:
     def separate(self, sample_audio, model_name):
         audio_tensor, sample_rate = sample_audio["waveform"], sample_audio["sample_rate"]
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        if self.model is None:
+        if self.model is None or self.current_model_name != model_name:            
+            # 加载新模型并记录名称
+            self.current_model_name = model_name
             self.model = demucs.pretrained.get_model(model_name).to(device)
             self.model.eval()
 
@@ -53,7 +60,9 @@ class Demucs_VocalSeparator:
         )[0]
         return (
             {"waveform": sources[3].unsqueeze(0), "sample_rate": sample_rate},
-            {"waveform": sources[0].unsqueeze(0), "sample_rate": sample_rate}
+            {"waveform": sources[2].unsqueeze(0), "sample_rate": sample_rate},
+            {"waveform": sources[0].unsqueeze(0), "sample_rate": sample_rate},
+            {"waveform": sources[1].unsqueeze(0), "sample_rate": sample_rate}
         )
 
 
